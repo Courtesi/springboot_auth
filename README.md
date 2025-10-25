@@ -34,15 +34,14 @@ A comprehensive Spring Boot application focused on user authentication and sessi
 
 ## Tech Stack
 
-- **Framework**: Spring Boot 3.2.0
-- **Java**: 17+
+- **Framework**: Spring Boot 3.5.6
+- **Java**: 21+
 - **Build Tool**: Maven
 - **Database**: MySQL 8.0
 - **Cache/Session**: Redis 7.0
-- **Security**: Spring Security
+- **Security**: Spring Security 6
 - **API Documentation**: OpenAPI/Swagger
 - **Containerization**: Docker & Docker Compose
-- **Database Migration**: Flyway
 - **Testing**: JUnit 5, Mockito, TestContainers
 
 ## Project Structure
@@ -73,7 +72,7 @@ A comprehensive Spring Boot application focused on user authentication and sessi
 
 ### Prerequisites
 
-- Java 17+
+- Java 21+
 - Maven 3.6+
 - Docker & Docker Compose
 - MySQL 8.0 (if running locally)
@@ -86,14 +85,33 @@ A comprehensive Spring Boot application focused on user authentication and sessi
    git clone <repository-url>
    cd trueshotodds_springboot_v2
    ```
+   or you can use IntelliJ's built-in features.
+   - Head to the top of an already existing project
+   - Go to Git -> Clone and in the URL box, paste the HTTPS URL of this repository.
 
 2. **Configure environment variables**
-   Create a `.env` file in the root directory:
+   Create a `.env` file in the root directory. Use the .env.example as a reference:
    ```env
-   MAIL_USERNAME=your-email@gmail.com
-   MAIL_PASSWORD=your-app-password
-   MAIL_FROM=noreply@trueshotodds.com
-   BASE_URL=http://localhost:8080
+   BASE_URL=http://localhost:5173
+   CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3001,http://127.0.0.1:5173,http://127.0.0.1:3001
+   
+   SPRING_REDIS_HOST=localhost
+   SPRING_REDIS_PORT=6379
+
+   RDS_HOSTNAME=your-database-host.amazonaws.com
+   RDS_PORT=3306
+   RDS_DB_NAME=your_database_name
+   SPRING_DATASOURCE_USERNAME=your_db_username
+   SPRING_DATASOURCE_PASSWORD=your_secure_db_password
+
+   MAIL_HOST=smtp.gmail.com
+   MAIL_PORT=587
+   MAIL_USERNAME=your_email@gmail.com
+   MAIL_PASSWORD=your_app_specific_password
+   MAIL_FROM=noreply@yourdomain.com
+
+   GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
 
 3. **Start the application**
@@ -110,18 +128,24 @@ A comprehensive Spring Boot application focused on user authentication and sessi
 
 1. **Start MySQL and Redis**
    ```bash
-   # Using Docker
+   # MySQL in Docker
    docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=trueshot_odds -p 3306:3306 mysql:8.0
+   
+   # Redis in Docker
    docker run -d --name redis -p 6379:6379 redis:7.0-alpine
+   docker compose up redis -d
    ```
 
 2. **Configure application properties**
    Update `src/main/resources/application.properties` with your database and mail settings.
 
-3. **Build and run**
+3. **Create an application-dev.properties file in src/main/resources**
+   Use this application-dev.properties file to differentiate any settings with development versus production.
+
+4. **Build and run**
    ```bash
    mvn clean install
-   mvn spring-boot:run
+   mvn spring-boot:run -Dspring.profiles.active=dev
    ```
 
 ## API Endpoints
@@ -286,18 +310,6 @@ Tests use:
    - Configure log aggregation
    - Set up alerting for critical errors
 
-### Docker Production Configuration
-
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-services:
-  app:
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SERVER_SERVLET_SESSION_COOKIE_SECURE: true
-      # Other production settings
-```
 
 ## Troubleshooting
 
@@ -305,6 +317,7 @@ services:
 
 1. **Session not persisting**
    - Check Redis connection
+   - Check database connection
    - Verify session timeout configuration
    - Check cookie settings
 
@@ -338,7 +351,7 @@ logging.level.org.springframework.session=DEBUG
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
 
 ## Support
 

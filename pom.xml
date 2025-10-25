@@ -9,13 +9,17 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>dev.wenslo</groupId>
-	<artifactId>trueshotodds</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>trueshotodds</name>
-	<description>TrueShotOdds Authentication Backend</description>
+	<artifactId>springboot_auth</artifactId>
+	<version>0.0.1</version>
+	<name>Spring Boot Authentication</name>
+	<description>Authentication with Spring Boot and Security, MySQL, Redis, and Docker</description>
 	<url/>
 	<licenses>
-		<license/>
+		<license>
+			<name>Apache 2.0 License</name>
+			<url>https://opensource.org/license/apache-2-0</url>
+			<distribution>repo</distribution>
+		</license>
 	</licenses>
 	<developers>
 		<developer/>
@@ -180,20 +184,6 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-
-<!--	<profiles>-->
-<!--		<profile>-->
-<!--			<id>dev</id>-->
-<!--			<dependencies>-->
-<!--				<dependency>-->
-<!--					<groupId>me.paulschwarz</groupId>-->
-<!--					<artifactId>spring-dotenv</artifactId>-->
-<!--					<version>4.0.0</version>-->
-<!--				</dependency>-->
-<!--			</dependencies>-->
-<!--		</profile>-->
-<!--	</profiles>-->
-
 
 	<build>
 		<plugins>
