@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean:*)",
+      "Bash(mvn:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.openrewrite.org)",
+      "Bash(java:*)",
+      "Bash(where java)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
