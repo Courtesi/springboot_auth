@@ -33,7 +33,6 @@ public class UserService {
     private final DeleteAccountTokenRepository deleteAccountTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final StripeService stripeService;
 
     public UserService(UserRepository userRepository,
                       SubscriptionRepository subscriptionRepository,
@@ -41,8 +40,7 @@ public class UserService {
                       PasswordResetTokenRepository tokenRepository,
                       DeleteAccountTokenRepository deleteAccountTokenRepository,
                       PasswordEncoder passwordEncoder,
-                      EmailService emailService,
-                      @Lazy StripeService stripeService) {
+                      EmailService emailService) {
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.preferencesRepository = preferencesRepository;
@@ -50,7 +48,6 @@ public class UserService {
         this.deleteAccountTokenRepository = deleteAccountTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
-        this.stripeService = stripeService;
     }
 
     @Value("${app.security.max-failed-login-attempts:5}")
@@ -310,248 +307,6 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
     }
 
-    /**
-     * Optimized method for bet stream validation that minimizes transaction time
-     * and connection usage. Only fetches essential user data for stream access control.
-     */
-    @Transactional(readOnly = true)
-    public BetStreamUserInfo getBetStreamUserInfo(String userId) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return null;
-        }
-
-        // Extract essential info and close transaction quickly
-        boolean canLogin = user.canLogin();
-        String subscriptionType = "FREE";
-        if (user.getSubscription() != null && user.getSubscription().isPremium()) {
-            subscriptionType = user.getSubscription().getPlan().name();
-        }
-
-        return new BetStreamUserInfo(userId, canLogin, subscriptionType);
-    }
-
-    /**
-     * DTO for bet stream user validation to minimize database connection usage
-     */
-    public static class BetStreamUserInfo {
-        private final String userId;
-        private final boolean canLogin;
-        private final String subscriptionType;
-
-        public BetStreamUserInfo(String userId, boolean canLogin, String subscriptionType) {
-            this.userId = userId;
-            this.canLogin = canLogin;
-            this.subscriptionType = subscriptionType;
-        }
-
-        public String getUserId() { return userId; }
-        public boolean canLogin() { return canLogin; }
-        public String getSubscriptionType() { return subscriptionType; }
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<User> findByStripeCustomerId(String stripeCustomerId) {
-        return userRepository.findByStripeCustomerId(stripeCustomerId);
-    }
-
-    @Transactional(readOnly = true)
-    public User findByStripeCustomerIdOrThrow(String stripeCustomerId) {
-        return findByStripeCustomerId(stripeCustomerId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with Stripe customer ID: " + stripeCustomerId));
-    }
-
-    @Transactional(readOnly = true)
-    public User findByStripeCustomerIdWithFallback(String stripeCustomerId, String userIdFromMetadata) {
-        // First try to find by Stripe customer ID (normal case)
-        Optional<User> userByCustomerId = findByStripeCustomerId(stripeCustomerId);
-
-        if (userByCustomerId.isPresent()) {
-            return userByCustomerId.get();
-        }
-
-        // Fallback: if customer ID lookup fails, use the user ID from metadata
-        if (userIdFromMetadata != null && !userIdFromMetadata.trim().isEmpty()) {
-            log.info("Customer ID lookup failed, falling back to user ID from metadata: {}", userIdFromMetadata);
-            return userRepository.findById(userIdFromMetadata)
-                    .orElseThrow(() -> new UserNotFoundException("User not found with ID from metadata: " + userIdFromMetadata));
-        }
-
-        throw new UserNotFoundException("User not found with Stripe customer ID: " + stripeCustomerId + " and no fallback user ID available");
-    }
-
-    @Transactional
-    public void updateStripeCustomerId(String userId, String stripeCustomerId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
-
-        user.setStripeCustomerId(stripeCustomerId);
-        userRepository.save(user);
-        log.info("Updated Stripe customer ID for user ID: {}", userId);
-    }
-
-    @Transactional
-    public void updateSubscriptionStatus(String stripeCustomerId, SubscriptionStatus status, SubscriptionPlan plan, LocalDateTime endDate) {
-        User user = findByStripeCustomerIdOrThrow(stripeCustomerId);
-        Subscription subscription = user.getSubscription();
-
-        if (subscription == null) {
-            subscription = new Subscription();
-            subscription.setUser(user);
-        }
-
-        subscription.setStatus(status);
-        subscription.setPlan(plan);
-        if (endDate != null) {
-            subscription.setExpiryDate(endDate.toLocalDate());
-        } else {
-            subscription.setExpiryDate(null);
-        }
-
-        subscriptionRepository.save(subscription);
-        log.info("Updated subscription for user ID: {} - Status: {}, Plan: {}, End Date: {}",
-                user.getId(), status, plan, endDate);
-    }
-
-    @Transactional
-    public void grantPremiumAccess(String stripeCustomerId) {
-        updateSubscriptionStatus(stripeCustomerId, SubscriptionStatus.ACTIVE, SubscriptionPlan.PREMIUM, null);
-    }
-
-    @Transactional
-    public void revokePremiumAccess(String stripeCustomerId, LocalDateTime endDate) {
-        User user = findByStripeCustomerIdOrThrow(stripeCustomerId);
-        Subscription subscription = user.getSubscription();
-
-        if (subscription != null) {
-            subscription.setStatus(SubscriptionStatus.CANCELLED);
-            subscription.setPlan(SubscriptionPlan.FREE);
-            if (endDate != null) {
-                subscription.setExpiryDate(endDate.toLocalDate());
-            }
-            subscriptionRepository.save(subscription);
-        }
-
-        log.info("Revoked premium access for user ID: {} - Access ends: {}", user.getId(), endDate);
-    }
-
-    @Transactional
-    public void setSubscriptionPastDue(String stripeCustomerId, LocalDateTime currentPeriodEnd) {
-        User user = findByStripeCustomerIdOrThrow(stripeCustomerId);
-        Subscription subscription = user.getSubscription();
-
-        if (subscription != null) {
-            subscription.setStatus(SubscriptionStatus.PAST_DUE);
-            if (currentPeriodEnd != null) {
-                subscription.setExpiryDate(currentPeriodEnd.toLocalDate());
-            }
-            subscriptionRepository.save(subscription);
-        }
-
-        log.info("Set subscription to past_due for user ID: {} - Grace period ends: {}",
-                user.getId(), currentPeriodEnd);
-    }
-
-    @Transactional
-    public void updateSubscriptionStatusByUserId(String userId, SubscriptionStatus status, SubscriptionPlan plan, LocalDateTime endDate) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
-        Subscription subscription = user.getSubscription();
-
-        if (subscription == null) {
-            subscription = new Subscription();
-            subscription.setUser(user);
-        }
-
-        subscription.setStatus(status);
-        subscription.setPlan(plan);
-        if (endDate != null) {
-            subscription.setExpiryDate(endDate.toLocalDate());
-        } else {
-            subscription.setExpiryDate(null);
-        }
-
-        subscriptionRepository.save(subscription);
-        log.info("Updated subscription for user ID: {} - Status: {}, Plan: {}, End Date: {}",
-                userId, status, plan, endDate);
-    }
-
-    @Transactional
-    public void grantPremiumAccessByUserId(String userId) {
-        updateSubscriptionStatusByUserId(userId, SubscriptionStatus.ACTIVE, SubscriptionPlan.PREMIUM, null);
-    }
-
-    @Transactional
-    public void revokePremiumAccessByUserId(String userId, LocalDateTime endDate) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
-        Subscription subscription = user.getSubscription();
-
-        if (subscription != null) {
-            subscription.setStatus(SubscriptionStatus.CANCELLED);
-            subscription.setPlan(SubscriptionPlan.FREE);
-            if (endDate != null) {
-                subscription.setExpiryDate(endDate.toLocalDate());
-            }
-            subscriptionRepository.save(subscription);
-        }
-
-        log.info("Revoked premium access for user ID: {} - Access ends: {}", userId, endDate);
-    }
-
-    @Transactional
-    public void setSubscriptionPastDueByUserId(String userId, LocalDateTime currentPeriodEnd) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
-        Subscription subscription = user.getSubscription();
-
-        if (subscription != null) {
-            subscription.setStatus(SubscriptionStatus.PAST_DUE);
-            if (currentPeriodEnd != null) {
-                subscription.setExpiryDate(currentPeriodEnd.toLocalDate());
-            }
-            subscriptionRepository.save(subscription);
-        }
-
-        log.info("Set subscription to past_due for user ID: {} - Grace period ends: {}",
-                userId, currentPeriodEnd);
-    }
-
-//    @Transactional
-//    public void setSubscriptionCancelAtPeriodEnd(String stripeCustomerId, LocalDateTime periodEndDate) {
-//        User user = findByStripeCustomerIdOrThrow(stripeCustomerId);
-//        Subscription subscription = user.getSubscription();
-//
-//        if (subscription != null) {
-//            subscription.setStatus(SubscriptionStatus.CANCEL_AT_PERIOD_END);
-//            if (periodEndDate != null) {
-//                subscription.setExpiryDate(periodEndDate.toLocalDate());
-//            }
-//            subscriptionRepository.save(subscription);
-//        }
-//
-//        log.info("Set subscription to cancel at period end for user ID: {} - Cancellation date: {}",
-//                user.getId(), periodEndDate);
-//    }
-
-//    @Transactional
-//    public void setSubscriptionCancelAtPeriodEndByUserId(String userId, LocalDateTime periodEndDate) {
-//        User user = findUserById(userId);
-//        Subscription subscription = user.getSubscription();
-//
-//        if (subscription != null) {
-//            subscription.setStatus(SubscriptionStatus.CANCEL_AT_PERIOD_END);
-//            subscription.setCancelAtPeriodEnd(true);
-//            if (periodEndDate != null) {
-//                subscription.setExpiryDate(periodEndDate.toLocalDate());
-//            }
-//            subscriptionRepository.save(subscription);
-//        }
-//
-//        log.info("Set subscription to cancel at period end for user ID: {} - Cancellation date: {}",
-//                userId, periodEndDate);
-//    }
-
     // Account deletion methods
 
     @Transactional
@@ -610,12 +365,6 @@ public class UserService {
             // Mark token as used
             deleteToken.markAsUsed();
             deleteAccountTokenRepository.save(deleteToken);
-
-            // 1. Cancel Stripe subscription and delete customer (if exists)
-            if (user.getStripeCustomerId() != null && !user.getStripeCustomerId().isEmpty()) {
-                stripeService.deleteStripeCustomer(user.getStripeCustomerId());
-                log.info("Stripe customer deleted for user ID: {}", userId);
-            }
 
             // 2. Delete related data in correct order
             deleteAccountTokenRepository.deleteAllByUserId(userId);  // Delete all tokens for this user
