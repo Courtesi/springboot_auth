@@ -18,8 +18,6 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     Optional<User> findByEmailVerificationToken(String token);
 
-    Optional<User> findByStripeCustomerId(String stripeCustomerId);
-
     Optional<User> findByOauthProviderAndOauthId(String oauthProvider, String oauthId);
 
     boolean existsByEmailIgnoreCase(String email);

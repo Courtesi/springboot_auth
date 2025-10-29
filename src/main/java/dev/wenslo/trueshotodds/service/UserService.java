@@ -7,12 +7,10 @@ import dev.wenslo.trueshotodds.entity.*;
 import dev.wenslo.trueshotodds.exception.UserNotFoundException;
 import dev.wenslo.trueshotodds.repository.DeleteAccountTokenRepository;
 import dev.wenslo.trueshotodds.repository.PasswordResetTokenRepository;
-import dev.wenslo.trueshotodds.repository.SubscriptionRepository;
 import dev.wenslo.trueshotodds.repository.UserPreferencesRepository;
 import dev.wenslo.trueshotodds.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,27 +25,28 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final UserPreferencesRepository preferencesRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final DeleteAccountTokenRepository deleteAccountTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
+    @Value("${REQUIRE_EMAIL_VERIFICATION}")
+    private boolean requireEmailVerification;
+
     public UserService(UserRepository userRepository,
-                      SubscriptionRepository subscriptionRepository,
                       UserPreferencesRepository preferencesRepository,
                       PasswordResetTokenRepository tokenRepository,
                       DeleteAccountTokenRepository deleteAccountTokenRepository,
                       PasswordEncoder passwordEncoder,
                       EmailService emailService) {
         this.userRepository = userRepository;
-        this.subscriptionRepository = subscriptionRepository;
         this.preferencesRepository = preferencesRepository;
         this.tokenRepository = tokenRepository;
         this.deleteAccountTokenRepository = deleteAccountTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        System.out.println("requireEmailVerification: " + requireEmailVerification);
     }
 
     @Value("${app.security.max-failed-login-attempts:5}")
@@ -75,16 +74,20 @@ public class UserService {
         user.setEmail(request.getEmail().toLowerCase());
         user.setFullName(request.getFullName());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setEmailVerificationToken(UUID.randomUUID().toString());
-        user.setEmailVerificationTokenExpiresAt(LocalDateTime.now().plusHours(24));
-        user.setStatus(UserStatus.PENDING_VERIFICATION);
+        user.setStatus(UserStatus.ACTIVE);
+
+        if (requireEmailVerification) {
+            user.setEmailVerificationToken(UUID.randomUUID().toString());
+            user.setEmailVerificationTokenExpiresAt(LocalDateTime.now().plusHours(24));
+        }
 
         user = userRepository.save(user);
 
-        createDefaultSubscription(user);
         createDefaultPreferences(user);
 
-        emailService.sendEmailVerification(user.getEmail(), user.getFullName(), user.getEmailVerificationToken());
+        if (requireEmailVerification) {
+            emailService.sendEmailVerification(user.getEmail(), user.getFullName(), user.getEmailVerificationToken());
+        }
 
         log.info("User registered successfully with ID: {}", user.getId());
         return user;
@@ -177,14 +180,6 @@ public class UserService {
         return getUserProfile(userId);
     }
 
-    private void createDefaultSubscription(User user) {
-        Subscription subscription = new Subscription();
-        subscription.setUser(user);
-        subscription.setPlan(SubscriptionPlan.FREE);
-        subscription.setStatus(SubscriptionStatus.ACTIVE);
-        subscriptionRepository.save(subscription);
-    }
-
     private void createDefaultPreferences(User user) {
         UserPreferences preferences = new UserPreferences();
         preferences.setUser(user);
@@ -203,21 +198,6 @@ public class UserService {
         response.setProfilePictureUrl(user.getProfilePictureUrl());
         response.setIsOAuth2User(user.isOAuth2User());
         response.setHasPassword(user.isEmailPasswordUser());
-
-        Subscription subscription = subscriptionRepository.findByUserId(user.getId()).orElse(null);
-        if (subscription != null) {
-            ProfileResponse.SubscriptionResponse subResponse = new ProfileResponse.SubscriptionResponse();
-            subResponse.setPlan(subscription.getPlan().name().toLowerCase());
-            subResponse.setStatus(subscription.getStatus().name().toLowerCase());
-            subResponse.setBillingCycle(subscription.getBillingCycle() != null ?
-                subscription.getBillingCycle().name().toLowerCase() : null);
-            subResponse.setNextBillingDate(subscription.getNextBillingDate() != null ?
-                subscription.getNextBillingDate().toString() : null);
-            subResponse.setCancelAtPeriodEnd(subscription.getCancelAtPeriodEnd());
-            subResponse.setExpiryDate(subscription.getExpiryDate() != null ?
-                subscription.getExpiryDate().toString() : null);
-            response.setSubscription(subResponse);
-        }
 
         UserPreferences preferences = preferencesRepository.findByUserId(user.getId()).orElse(null);
         if (preferences != null) {
@@ -375,11 +355,6 @@ public class UserService {
                 preferencesRepository.delete(user.getPreferences());
             }
 
-            // Delete subscription (one-to-one)
-            if (user.getSubscription() != null) {
-                subscriptionRepository.delete(user.getSubscription());
-            }
-
             // 3. Delete user (this will cascade delete user_roles)
             userRepository.delete(user);
 
@@ -447,7 +422,6 @@ public class UserService {
             newUser = userRepository.save(newUser);
 
             // Create default subscription and preferences for new OAuth2 user
-            createDefaultSubscription(newUser);
             createDefaultPreferences(newUser);
 
             log.info("Created new OAuth2 user with ID: {} for provider: {}", newUser.getId(), provider);

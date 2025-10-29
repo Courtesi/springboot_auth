@@ -13,18 +13,7 @@ public class ProfileResponse {
     private String profilePictureUrl;
     private Boolean isOAuth2User;
     private Boolean hasPassword;
-    private SubscriptionResponse subscription;
     private PreferencesResponse preferences;
-
-    @Data
-    public static class SubscriptionResponse {
-        private String plan;
-        private String status;
-        private String billingCycle;
-        private String nextBillingDate;
-        private Boolean cancelAtPeriodEnd;
-        private String expiryDate;
-    }
 
     @Data
     public static class PreferencesResponse {

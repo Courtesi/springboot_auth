@@ -85,7 +85,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             log.info("User {} successfully authenticated via Google OAuth2", email);
 
             // Redirect to frontend dashboard
-            String targetUrl = baseUrl + "/dashboard";
+            String targetUrl = baseUrl;
             getRedirectStrategy().sendRedirect(request, response, targetUrl);
 
         } catch (Exception e) {

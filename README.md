@@ -145,7 +145,7 @@ A comprehensive Spring Boot application focused on user authentication and sessi
 4. **Build and run**
    ```bash
    mvn clean install
-   mvn spring-boot:run -Dspring.profiles.active=dev
+   mvn spring-boot:run -Dspring-boot.run.profiles=dev
    ```
 
 ## API Endpoints

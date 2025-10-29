@@ -19,8 +19,8 @@ import java.util.Set;
 })
 @Data
 @EntityListeners(AuditingEntityListener.class)
-@EqualsAndHashCode(exclude = {"subscription", "preferences", "passwordResetTokens", "deleteAccountTokens"})
-@ToString(exclude = {"password", "subscription", "preferences", "passwordResetTokens", "deleteAccountTokens"})
+@EqualsAndHashCode(exclude = {"preferences", "passwordResetTokens", "deleteAccountTokens"})
+@ToString(exclude = {"password", "preferences", "passwordResetTokens", "deleteAccountTokens"})
 public class User {
 
     @Id
@@ -72,9 +72,6 @@ public class User {
     @Column(name = "email_verification_token_expires_at")
     private LocalDateTime emailVerificationTokenExpiresAt;
 
-    @Column(name = "stripe_customer_id", length = 255)
-    private String stripeCustomerId;
-
     @Column(name = "oauth_provider", length = 50)
     private String oauthProvider;
 
@@ -83,9 +80,6 @@ public class User {
 
     @Column(name = "profile_picture_url", length = 500)
     private String profilePictureUrl;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Subscription subscription;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private UserPreferences preferences;
@@ -133,10 +127,6 @@ public class User {
 
     public void lockAccount(int lockoutMinutes) {
         this.accountLockedUntil = LocalDateTime.now().plusMinutes(lockoutMinutes);
-    }
-
-    public boolean hasPremiumAccess() {
-        return subscription != null && subscription.isPremium();
     }
 
     public boolean isOAuth2User() {

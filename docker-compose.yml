@@ -1,11 +1,11 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: trueshot-redis
+    container_name: pi-redis
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis-data:/data
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -14,15 +14,35 @@ services:
     networks:
       - trueshot-network
 
+
+  mysql:
+    image: mysql:8.0.19
+    container_name: pi-mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: Bkm6P7JP4TIWmFVQA5SB
+      # uncomment below if you want to automatically create and select a database
+      MYSQL_DATABASE: prediction_investor_db
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u root --password=$$MYSQL_PASSWORD
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: trueshot-app
+    container_name: pi-app
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: 6379
+      SPRING_REDIS_HOST: ${SPRING_REDIS_HOST}
+      SPRING_REDIS_PORT: ${SPRING_REDIS_PORT}
       MAIL_USERNAME: ${MAIL_USERNAME:-your-email@gmail.com}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-your-app-password}
       MAIL_FROM: ${MAIL_FROM:-noreply@trueshotodds.com}
@@ -33,9 +53,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
 
@@ -49,7 +66,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  redis_data:
+  mysql-data:
+  redis-data:
     driver: local
 
 networks:

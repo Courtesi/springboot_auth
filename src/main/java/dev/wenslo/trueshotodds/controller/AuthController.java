@@ -48,7 +48,7 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
     private final PasswordStrengthService passwordStrengthService;
     private final RateLimitService rateLimitService;
-    private final PasswordEncoder passwordEncoder;
+//    private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
 
     @PostMapping("/register")
@@ -88,13 +88,13 @@ public class AuthController {
             // Always return success response to prevent email enumeration
             // Whether user was created or already exists, we return the same message
             return ResponseEntity.ok(AuthResponse.success(
-                "Registration successful. Please check your email to verify your account."
+                "Registration successful. Please log in with your account now."
             ));
         } catch (Exception e) {
             log.error("Registration failed for email: {} with error: {}", request.getEmail(), e.getMessage());
             // Return generic success message even on error to prevent enumeration
             return ResponseEntity.ok(AuthResponse.success(
-                "Registration successful. Please check your email to verify your account."
+                "Registration successful. Please log in with your account now."
             ));
         }
     }

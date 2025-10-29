@@ -20,17 +20,23 @@ public class OpenApiConfig {
     @Value("${app.mail.base-url:http://localhost:8080}")
     private String baseUrl;
 
+    @Value("${APP_NAME}")
+    private String appName;
+
+    @Value("${SUPPORT_EMAIL}")
+    private String supportEmail;
+
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .servers(List.of(new Server().url(baseUrl)))
                 .info(new Info()
-                        .title("TrueShotOdds Authentication API")
+                        .title(appName + " Authentication API")
                         .description("Spring Boot authentication backend with session management, user registration, and profile management")
                         .version("1.0.0")
                         .contact(new Contact()
-                                .name("TrueShotOdds")
-                                .email("support@trueshotodds.com")))
+                                .name(appName)
+                                .email(supportEmail)))
                 .components(new Components()
                         .addSecuritySchemes("session-auth", new SecurityScheme()
                                 .type(SecurityScheme.Type.APIKEY)
