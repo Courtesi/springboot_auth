@@ -92,26 +92,30 @@ A comprehensive Spring Boot application focused on user authentication and sessi
 2. **Configure environment variables**
    Create a `.env` file in the root directory. Use the .env.example as a reference:
    ```env
-   BASE_URL=http://localhost:5173
-   CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3001,http://127.0.0.1:5173,http://127.0.0.1:3001
+   BASE_URL=replace
+   CORS_ALLOWED_ORIGINS=replace
+   REQUIRE_EMAIL_VERIFICATION=replace (true/false)
    
-   SPRING_REDIS_HOST=localhost
-   SPRING_REDIS_PORT=6379
-
-   RDS_HOSTNAME=your-database-host.amazonaws.com
-   RDS_PORT=3306
-   RDS_DB_NAME=your_database_name
-   SPRING_DATASOURCE_USERNAME=your_db_username
-   SPRING_DATASOURCE_PASSWORD=your_secure_db_password
-
-   MAIL_HOST=smtp.gmail.com
-   MAIL_PORT=587
-   MAIL_USERNAME=your_email@gmail.com
-   MAIL_PASSWORD=your_app_specific_password
-   MAIL_FROM=noreply@yourdomain.com
-
-   GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   APP_NAME=replace ("Prediction Investor")
+   SUPPORT_EMAIL=replace
+   
+   SPRING_REDIS_HOST=replace
+   SPRING_REDIS_PORT=replace
+   
+   RDS_HOSTNAME=replace (e.g your-database-host.amazonaws.com)
+   RDS_PORT=replace
+   RDS_DB_NAME=replace
+   SPRING_DATASOURCE_USERNAME=replace (e.g root)
+   SPRING_DATASOURCE_PASSWORD=replace
+   
+   MAIL_HOST=replace (e.g smtp.gmail.com)
+   MAIL_PORT=replace
+   MAIL_USERNAME=replace
+   MAIL_PASSWORD=replace
+   MAIL_FROM=replace
+   
+   GOOGLE_CLIENT_ID=replace (e.g your_google_client_id.apps.googleusercontent.com)
+   GOOGLE_CLIENT_SECRET=replace
    ```
 
 3. **Start the application**
